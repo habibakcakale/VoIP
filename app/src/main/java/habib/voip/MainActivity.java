@@ -1,18 +1,19 @@
 package habib.voip;
 
-import java.util.ArrayList;
-
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ListView;
 
+import com.purplefrog.speexjni.FrequencyBand;
+import com.purplefrog.speexjni.SpeexDecoder;
+
+import java.util.ArrayList;
+
 import habib.voip.adapters.ListAdapter;
 import habib.voip.network.TCPConnect;
 import habib.voip.network.TCPSender;
-import habib.voip.sound.FrequencyBand;
-import habib.voip.sound.SpeexDecoder;
 
 public class MainActivity extends ActionBarActivity {
 	public static final ArrayList<Integer> ARRAY_LIST = new ArrayList<Integer>();
@@ -22,6 +23,7 @@ public class MainActivity extends ActionBarActivity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+        new SpeexDecoder(FrequencyBand.WIDE_BAND);
         activity = this;
 		setContentView(R.layout.activity_main);
 		ListView userList = (ListView) findViewById(R.id.userList);

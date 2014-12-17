@@ -2,15 +2,14 @@ package habib.voip;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.util.Log;
 
-import habib.voip.sound.FrequencyBand;
-import habib.voip.sound.SpeexEncoder;
+import com.purplefrog.speexjni.FrequencyBand;
+import com.purplefrog.speexjni.SpeexEncoder;
 
 public class UdpSender extends Thread {
 

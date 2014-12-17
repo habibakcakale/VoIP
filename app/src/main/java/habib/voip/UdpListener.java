@@ -8,8 +8,8 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.util.Log;
 
-import habib.voip.sound.FrequencyBand;
-import habib.voip.sound.SpeexDecoder;
+import com.purplefrog.speexjni.FrequencyBand;
+import com.purplefrog.speexjni.SpeexDecoder;
 
 public class UdpListener extends Thread {
 
