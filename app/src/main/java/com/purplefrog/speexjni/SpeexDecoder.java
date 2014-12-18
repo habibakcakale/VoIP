@@ -1,4 +1,4 @@
-package habib.voip.sound;
+package com.purplefrog.speexjni;
 
 import android.util.Log;
 

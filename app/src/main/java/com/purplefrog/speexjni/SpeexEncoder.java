@@ -1,4 +1,4 @@
-package habib.voip.sound;
+package com.purplefrog.speexjni;
 
 /**
  * A thin wrapper around some JNI wrapped around the Xiph Speex library.
