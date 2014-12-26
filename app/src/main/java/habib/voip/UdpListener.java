@@ -1,15 +1,14 @@
 package habib.voip;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.util.Log;
 
 import com.purplefrog.speexjni.FrequencyBand;
 import com.purplefrog.speexjni.SpeexDecoder;
+
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 
 public class UdpListener extends Thread {
 
@@ -27,11 +26,11 @@ public class UdpListener extends Thread {
 					AudioTrack.MODE_STREAM);
 			track.play();
 			DatagramSocket socket = Manager.getManager().getUdpSocket();
-			while (Values.running) {
-				byte[] capturedData = new byte[Values.BUFFER_SIZE];
-				DatagramPacket packet = new DatagramPacket(capturedData, capturedData.length);
+
+            while (Values.running) {
+                byte[] capturedData = new byte[Values.BUFFER_SIZE];
+                DatagramPacket packet = new DatagramPacket(capturedData, capturedData.length);
                 socket.receive(packet);
-                Log.i(Values.LogTag, "Length of packet :"+ packet.getLength());
                 byte[] data = packet.getData();
                 short[] decode = decoder.decode(data);
                 track.write(decode, 0, decode.length);
