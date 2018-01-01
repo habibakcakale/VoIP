@@ -16,15 +16,13 @@ public class TCPListener extends AsyncBase<Void, Void, Void> {
     @Override
     protected Void doInBackground(Void... voids) {
         Manager manager = Manager.getManager();
-
+        Protocols protocols = new Protocols();
         while (!manager.getSocket().isClosed()) {
-
             byte[] buffer = new byte[1000];
             try {
                 manager.getSocket().getInputStream().read(buffer);
-                ByteBuffer wrap = ByteBuffer.wrap(buffer).order(
-                        ByteOrder.LITTLE_ENDIAN);
-                Protocols.HandlePackage(wrap);
+                ByteBuffer wrap = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
+                protocols.HandlePackage(wrap);
             } catch (IOException e) {
                 e.printStackTrace();
             }

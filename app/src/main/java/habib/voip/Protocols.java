@@ -1,36 +1,67 @@
 package habib.voip;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.util.Base64;
+import android.util.Log;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.InvalidKeyException;
 import java.util.ArrayList;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.util.Log;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.ProgressBar;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
 
+import habib.voip.crypto.SecurityManager;
 import habib.voip.network.TCPSender;
 
 public class Protocols {
-    public static final byte GETLIST = 1, CALL = 2, ENDCALL = 3, LOGOUT = 4,
-            ACCEPTCALL = 5, REJECTCALL = 6, ERROR = 7, BUSY = 8, CALLSENT = 9, PORTEXCHANGE = 10, IPEXCHANGE = 11;
+    public static final byte CONNECT = 0, GETLIST = 1, CALL = 2, ENDCALL = 3, LOGOUT = 4,
+            ACCEPTCALL = 5, REJECTCALL = 6, ERROR = 7, BUSY = 8, CALLSENT = 9, PORTEXCHANGE = 10, IPEXCHANGE = 11,
+            SESSIONKEY = 12;
     static AlertDialog dialog;
+    Manager manager = Manager.getManager();
+
+    public static ByteBuffer allocateBuffer(int size) {
+        return ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    public static ByteBuffer allocateBuffer() {
+        return ByteBuffer.allocate(1024 * 1024 * 4).order(ByteOrder.LITTLE_ENDIAN);
+    }
 
     /**
      * @param wrap
      */
-    public static void HandlePackage(ByteBuffer wrap) {
+    private static void HandleLogout(ByteBuffer wrap) {
+
+    }
+
+    public static String join(byte[] array) {
+        if (array.length == 0) return "";
+        StringBuilder sb = new StringBuilder();
+        int i;
+        for (i = 0; i < array.length - 1; i++)
+            sb.append(array[i]);
+        return sb.toString();
+    }
+
+    /**
+     * @param wrap
+     */
+    public void HandlePackage(ByteBuffer wrap) {
         switch (wrap.get()) {
             case Protocols.GETLIST:
                 HandleUserList(wrap);
@@ -64,14 +95,38 @@ public class Protocols {
                 break;
             case Protocols.IPEXCHANGE:
                 HandleIpExchange(wrap);
+                break;
+            case Protocols.SESSIONKEY:
+                HandleSessionKey(wrap);
+                break;
             default:
                 break;
         }
     }
 
-    private static void HandleIpExchange(ByteBuffer wrap) {
+    private void HandleSessionKey(ByteBuffer wrap) {
+        int length = wrap.getInt();
+        Values.SessionKey = new byte[length];
+        wrap.get(Values.SessionKey);
+        Log.i(Values.LogTag, "HandleSessionKey Key Length" + length);
+        try {
+            SecurityManager securityManager = Manager.getManager().getSecurityManager();
+            Values.SessionKey = securityManager.DecryptWithPrivate(Values.SessionKey);
+            Log.i(Values.LogTag, join(Values.SessionKey));
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.i(Values.LogTag, "SessionKey has been gotten" + Base64.encode(Values.SessionKey, Base64.DEFAULT));
+    }
+
+    private void HandleIpExchange(ByteBuffer wrap) {
         byte[] ipAddress = new byte[4];
-        ByteBuffer buffer = allocateBuffer();
         ipAddress[0] = wrap.get();
         ipAddress[1] = wrap.get();
         ipAddress[2] = wrap.get();
@@ -79,11 +134,13 @@ public class Protocols {
         try {
             Manager manager = Manager.getManager();
             manager.ConnectedIpAddress = InetAddress.getByAddress(ipAddress);
-            DatagramPacket packet = new DatagramPacket(new byte[1], 1, Manager.getManager().ConnectedIpAddress, 55555);
+            DatagramPacket packet = new DatagramPacket(new byte[1], 1, manager.ConnectedIpAddress, 55555);
             manager.getUdpSocket().send(packet);
-            Log.i(Values.LogTag,"Protocols.PORTEXCHANGE");
+            Log.i(Values.LogTag, "Protocols.PORTEXCHANGE");
+            ByteBuffer buffer = allocateBuffer(Byte.SIZE + Integer.SIZE);
             buffer.put(Protocols.PORTEXCHANGE).putInt(manager.getUdpSocket().getLocalPort());
-            manager.getSocket().getOutputStream().write(buffer.array());
+            new TCPSender().executeContent(buffer.array());
+            dismissDialog();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (SocketException e) {
@@ -94,30 +151,23 @@ public class Protocols {
 
     }
 
-    private static void HandlePortExchange(ByteBuffer wrap) {
+    private void HandlePortExchange(ByteBuffer wrap) {
         int port = wrap.getInt();
-        Manager.getManager().ConnectedPort = port;
-        Log.i(Values.LogTag, Manager.getManager().ConnectedIpAddress + ":" + port);
+        manager.ConnectedPort = port;
+        Log.i(Values.LogTag, manager.ConnectedIpAddress + ":" + port);
         MainActivity.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                Log.i(Values.LogTag, "Port Exchange successed");
                 MainActivity.getActivity().startActivity(new Intent(MainActivity.getActivity(), VoiceCallActivity.class));
             }
         });
     }
 
-    public static ByteBuffer allocateBuffer(int size) {
-        return ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
-    }
-
-    public static ByteBuffer allocateBuffer() {
-        return ByteBuffer.allocate(1000).order(ByteOrder.LITTLE_ENDIAN);
-    }
-
     /**
      * @param wrap
      */
-    private static void HandleCallSent(ByteBuffer wrap) {
+    private void HandleCallSent(ByteBuffer wrap) {
         MainActivity.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -130,87 +180,82 @@ public class Protocols {
         });
     }
 
-    private static ByteBuffer GetExchangeData() {
-        ByteBuffer buffer = allocateBuffer(5);
-        buffer.put(Protocols.PORTEXCHANGE);
-        try {
-            Manager manager = Manager.getManager();
-            DatagramPacket packet = new DatagramPacket(new byte[1], 1, InetAddress.getByName(Values.IP), Values.PORT);
-            manager.getUdpSocket().send(packet);
-            buffer.putInt(manager.getUdpSocket().getLocalPort());
-        } catch (SocketException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return buffer;
-    }
-
     /**
      * @param wrap
      */
-    private static void HandleBusy(ByteBuffer wrap) {
-
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleError(ByteBuffer wrap) {
-
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleRejectCall(ByteBuffer wrap) {
-        if (dialog != null) {
-            dialog.dismiss();
-        }
-        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.getActivity());
-        builder.setTitle("Your call has been rejected.");
-        builder.setNeutralButton("Ok", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-            }
-        });
-        builder.create().show();
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleAccept(ByteBuffer wrap) {
-        if (dialog != null) {
-            dialog.dismiss();
-        }
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleLogout(ByteBuffer wrap) {
-
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleEndCall(ByteBuffer wrap) {
-        Values.running = false;
-    }
-
-    /**
-     * @param wrap
-     */
-    private static void HandleCall(ByteBuffer wrap) {
-        int callerId = wrap.getInt();
+    private void HandleBusy(ByteBuffer wrap) {
+        dismissDialog();
         MainActivity.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.getActivity());
-                builder.setTitle("Call request");
+                builder.setTitle("The person you have called has another call at the moment. Please try again lather");
+                builder.setNeutralButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                    }
+                });
+                builder.create().show();
+            }
+        });
+    }
+
+    /**
+     * @param wrap
+     */
+    private void HandleError(ByteBuffer wrap) {
+        dismissDialog();
+        Toast.makeText(MainActivity.getActivity(), "An error occured while calling user", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * @param wrap
+     */
+    private void HandleRejectCall(ByteBuffer wrap) {
+        dismissDialog();
+        MainActivity.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.getActivity());
+                builder.setTitle("Your call has been rejected.");
+                builder.setNeutralButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                    }
+                });
+                builder.create().show();
+            }
+        });
+    }
+
+    /**
+     * @param wrap
+     */
+    private void HandleAccept(ByteBuffer wrap) {
+    }
+
+    /**
+     * @param wrap
+     */
+    private void HandleEndCall(ByteBuffer wrap) {
+        Values.running = false;
+        if (manager.getActivity() instanceof VoiceCallActivity) {
+            manager.getActivity().finish();
+        }
+    }
+
+    /**
+     * @param wrap
+     */
+    private void HandleCall(ByteBuffer wrap) {
+        final int callerId = wrap.getInt();
+        MainActivity.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.getActivity());
+                builder.setTitle("Call request from: " + callerId);
                 builder.setCancelable(false);
                 builder.setNegativeButton("Reject", new DialogInterface.OnClickListener() {
                     @Override
@@ -236,9 +281,9 @@ public class Protocols {
      * @param wrap
      * @return
      */
-    private static ArrayList<Integer> HandleUserList(ByteBuffer wrap) {
+    private ArrayList<Integer> HandleUserList(ByteBuffer wrap) {
         final Activity activity = MainActivity.getActivity();
-        final ArrayList<Integer> userList = new ArrayList<Integer>();
+        final ArrayList<Integer> userList = new ArrayList<>();
         int userCount = wrap.getInt();
         for (int i = 0; i < userCount; i++) {
             userList.add(wrap.getInt());
@@ -254,5 +299,11 @@ public class Protocols {
             }
         });
         return userList;
+    }
+
+    private void dismissDialog() {
+        if (dialog != null) {
+            dialog.dismiss();
+        }
     }
 }

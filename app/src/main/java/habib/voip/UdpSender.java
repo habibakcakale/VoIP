@@ -1,8 +1,5 @@
 package habib.voip;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
@@ -10,6 +7,9 @@ import android.util.Log;
 
 import com.purplefrog.speexjni.FrequencyBand;
 import com.purplefrog.speexjni.SpeexEncoder;
+
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 
 public class UdpSender extends Thread {
 
@@ -27,17 +27,19 @@ public class UdpSender extends Thread {
 			audioRecord.startRecording();
 			DatagramSocket datagramSocket = Manager.getManager().getUdpSocket();
 
-            Log.i(Values.LogTag, Values.running+"");
+            Log.i(Values.LogTag, Values.running + "");
+            // byte i = 0;
             while (Values.running) {
 				short[] audioData = new short[encoder.getFrameSize()];
-				audioRecord.read(audioData, 0, audioData.length);
-                byte[] encode = encoder.encode(audioData);
-                DatagramPacket datagramPacket = new DatagramPacket(encode, encode.length , Manager.getManager().ConnectedIpAddress, Manager.getManager().ConnectedPort);
-				datagramSocket.send(datagramPacket);
-			}
-			datagramSocket.close();
+                int read = audioRecord.read(audioData, 0, audioData.length);
+                if(read == audioData.length) {
+                    byte[] encode = encoder.encode(audioData);
+                    DatagramPacket datagramPacket = new DatagramPacket(encode, encode.length, Manager.getManager().ConnectedIpAddress, Manager.getManager().ConnectedPort);
+                    datagramSocket.send(datagramPacket);
+                }
+            }
+            datagramSocket.close();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

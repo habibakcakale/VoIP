@@ -16,18 +16,19 @@ public class VoiceCallActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_voice_call);
+        Manager.getManager().setActivity(this);
         Values.running = true;
         new UdpSender().start();
         new UdpListener().start();
-        Button endCallButton = (Button)findViewById(R.id.endCall);
+        Button endCallButton = (Button) findViewById(R.id.endCall);
         endCallButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new TCPSender().executeContent(new byte[]{ Protocols.ENDCALL });
+                new TCPSender().executeContent(new byte[]{Protocols.ENDCALL});
+                Values.running = false;
                 finish();
             }
         });
-
     }
 
     @Override
@@ -36,23 +37,16 @@ public class VoiceCallActivity extends Activity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_voice_call, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
 }
